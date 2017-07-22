@@ -57,6 +57,8 @@ subzone_SF_DT <- rbind(
   subzone_2008_SF_DT[,.(year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)],
   subzone_2014_SF_DT[,.(year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)]
 ) 
+# convert to usual Long and data
+#subzone_SF_DT[,geometry:=st_transform(geometry,crs=4267)]
 setkey(subzone_SF_DT,"year","PLN_AREA_C","SUBZONE_NO")
 #######################################
 #post code conversion to planning area#
@@ -70,7 +72,7 @@ post_SF <- st_as_sf(post_DT,coords = c("x","y"),agr="constant",crs=4267)
 post_SF <- st_transform(post_SF,st_crs(subzone_SF))
 post_SF_DT <- data.table(post_SF)
 
-within_LS <- st_within(post_SF_DT[,geometry],subzone_SF_DT[,geometry])
+within_LS <- st_within(post_SF_DT[,geometry],subzone_SF_DT[year==2014,geometry])
 #handle non unique intersection
 within_LS <- lapply(within_LS,function(x){ifelse(length(x)==1,x,NA)})
 
