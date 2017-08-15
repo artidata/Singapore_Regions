@@ -1,6 +1,4 @@
 
-
-
 foo_SF_DT <- subzone_SF_DT[year==2014]
 singapore_SF_DT <- data.table(geometry = foo_SF_DT[,st_union(geometry),])
 
@@ -55,6 +53,7 @@ all_postal_sector[!all_postal_sector %in% postcode_SF_DT[within_singapore==T,uni
 #
 foo <- st_voronoi(postcode_SF_DT[postal_sector=="05"&within_singapore==T,geometry],
                   singapore_SF_DT[,st_sfc(geometry)])
+
 # data is large, we need to sample
 set.seed(240193)
 rand <- sample(1:nrow(postcode_SF_DT),20000,replace = F)

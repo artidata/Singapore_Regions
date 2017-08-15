@@ -1,19 +1,19 @@
 library(data.table)
 library(sf)
 library(ggplot2)
-library(gganimate)
 library(stringr)
-library(viridis)
+library(rprojroot)
 ###############
 #Cleaning Data#
 ###############
 
-dirr <- getwd()
-subzone_1998_SF <- read_sf(str_c(dirr,"/shp/1998/MP98_SUBZONE_NO_SEA_PL.shp"))
+root <- find_root(is_rstudio_project)
+
+subzone_1998_SF <- read_sf(str_c(root,"/shp/1998/MP98_SUBZONE_NO_SEA_PL.shp"))
 subzone_1998_SF$year <- 1998
-subzone_2008_SF <- read_sf(str_c(dirr,"/shp/2008/MP08_SUBZONE_NO_SEA_PL.shp"))
+subzone_2008_SF <- read_sf(str_c(root,"/shp/2008/MP08_SUBZONE_NO_SEA_PL.shp"))
 subzone_2008_SF$year <- 2008
-subzone_2014_SF <- read_sf(str_c(dirr,"/shp/2014/MP14_SUBZONE_NO_SEA_PL.shp"))
+subzone_2014_SF <- read_sf(str_c(root,"/shp/2014/MP14_SUBZONE_NO_SEA_PL.shp"))
 subzone_2014_SF$year <- 2014
 
 # Proof that the projection is the same
@@ -38,7 +38,7 @@ subzone_2014_SF_DT <- data.table(subzone_2014_SF)
 
 # Cleaning 1998 data
 ## adding Planning Area Name for 1998 data
-foo_SF <- read_sf(paste0(dirr,"/shp/1998 Planning Area/MP98_PLNG_AREA_NO_SEA_PL.shp"))
+foo_SF <- read_sf(paste0(root,"/shp/1998 Planning Area/MP98_PLNG_AREA_NO_SEA_PL.shp"))
 foo_DT <- data.table(PLN_AREA_C = foo_SF$PLN_AREA_C,
                      PLN_AREA_N = foo_SF$PLN_AREA_N)
 subzone_1998_SF_DT <- merge(subzone_1998_SF_DT,foo_DT,by="PLN_AREA_C",all.x=T)
@@ -53,13 +53,14 @@ foo_DT <- subzone_2008_SF_DT[,.(SUBZONE_C,SUBZONE_N),]
 subzone_1998_SF_DT <- merge(subzone_1998_SF_DT,foo_DT,by="SUBZONE_C",all.x=T)
 
 subzone_SF_DT <- rbind(
-  subzone_1998_SF_DT[,.(year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)],
-  subzone_2008_SF_DT[,.(year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)],
-  subzone_2014_SF_DT[,.(year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)]
+  subzone_1998_SF_DT[,.(id = OBJECTID, year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)],
+  subzone_2008_SF_DT[,.(id = OBJECTID, year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)],
+  subzone_2014_SF_DT[,.(id = OBJECTID, year, SUBZONE_NO,SUBZONE_C,SUBZONE_N,PLN_AREA_C,PLN_AREA_N,geometry)]
 ) 
 # convert to usual Long and data
 #subzone_SF_DT[,geometry:=st_transform(geometry,crs=4267)]
 setkey(subzone_SF_DT,"year","PLN_AREA_C","SUBZONE_NO")
+
 #######################################
 #post code conversion to planning area#
 #######################################
@@ -67,25 +68,25 @@ setkey(subzone_SF_DT,"year","PLN_AREA_C","SUBZONE_NO")
 # Here we use the latest master plan
 foo_SF_DT <- subzone_SF_DT[year==2014,]
 
-post_DT <- fread(paste0(dirr,"/locfile 20151126.csv"))
+post_DT <- fread(str_c(root,"/raw_data/locfile 20151126.csv"))
 post_SF <- st_as_sf(post_DT,coords = c("x","y"),agr="constant",crs=4267)
-post_SF <- st_transform(post_SF,st_crs(subzone_SF))
+post_SF <- st_transform(post_SF,all_crs)
 post_SF_DT <- data.table(post_SF)
 
-within_LS <- st_within(post_SF_DT[,geometry],subzone_SF_DT[year==2014,geometry])
+within_LS <- st_within(post_SF_DT[,geometry],foo_SF_DT[,geometry])
 #handle non unique intersection
 within_LS <- lapply(within_LS,function(x){ifelse(length(x)==1,x,NA)})
 
 regionConversion_DT <- data.table(postcode=post_DT[,postcode], id = unlist(within_LS))
-regionConversion_DT <- merge(regionConversion_DT,foo_DT,by="id",all.x=T)
-
-fwrite(regionConversion_DT,"regionConversion_DT 20170715.csv")
+regionConversion_DT <- merge(regionConversion_DT,foo_SF_DT,by="id",all.x=T)
+regionConversion_DT <- regionConversion_DT[,.(postcode,SUBZONE_C,PLN_AREA_C)]
+fwrite(regionConversion_DT,str_c(root,"/processed_data/regionConversion_DT 20170816.csv"))
 
 ##########################
 #Aging population example#
 ##########################
 subzone_SF_DT[,geometry:=st_transform(geometry,crs=4267)]
-pop_DT <- fread(paste0(dirr,"/respopagsex2000to2016.csv"))
+pop_DT <- fread(str_c(root,"/respopagsex2000to2016.csv"))
 pop_DT[,":="(PA = toupper(PA),
              SZ = toupper(SZ)),]
 pop_DT[,start_AG := as.integer(str_extract(AG,"\\d*"))]
@@ -109,53 +110,3 @@ graph2_DT <- graph_DT[,.(geometry=(st_union(geometry)),
 graph2_DT[,geometry:=st_cast(geometry)]
 
 
-#######
-#PLOTS#
-#######
-
-# Attempt 1
-## graph_DT
-ggplot()+
-  geom_sf(data=graph_DT,aes(geometry = geometry, fill=Pop),lty=0) + 
-  theme_void()+
-  theme(line = element_blank(),
-        title = element_blank())+
-  facet_wrap(~Time)+
-  scale_fill_viridis(option="inferno")
-subzone
-gganimate(gif)
-
-## graph_DT[2]
-ggplot()+
-  geom_sf(data=graph2_DT,aes(geometry = geometry, fill=Pop),lty=0) + 
-  theme_void()+
-  theme(line = element_blank(),
-        title = element_blank())+
-  facet_wrap(~Time)+
-  scale_fill_viridis(option="inferno")
-
-# Attempt 2
-
-ggplot()+
-  geom_sf(data=graph2_DT,aes(geometry = geometry, fill=Pop),lty=0) + 
-  theme_void()+
-  facet_wrap(~Time)+
-  theme(title = element_blank(),
-        text = element_text(color = "#7f0000"),
-        plot.background = element_rect(fill="#c6dbef"),
-        panel.grid.major = element_line(color="#c6dbef"),
-        panel.grid.minor = element_line(color="#c6dbef"),
-        legend.position = "none")+
-  scale_fill_distiller(palette ="OrRd",direction = 1)
-
-ggplot()+
-  geom_sf(data=graph_DT,aes(geometry = geometry, fill=Pop),lty=0) + 
-  theme_void()+
-  facet_wrap(~Time)+
-  theme(title = element_blank(),
-        text = element_text(color = "#7f0000"),
-        plot.background = element_rect(fill="#c6dbef"),
-        panel.grid.major = element_line(color="#c6dbef"),
-        panel.grid.minor = element_line(color="#c6dbef"),
-        legend.position = "none")+
-  scale_fill_distiller(palette ="OrRd",direction = 1)

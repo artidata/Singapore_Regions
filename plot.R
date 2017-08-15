@@ -2,7 +2,7 @@ library(reshape2)
 
 #1
 void <- c("00","02","74")
-graph_1_DT <- fread(str_c(dirr,"/data/1.csv"))
+graph_1_DT <- fread(str_c(root,"/data/1.csv"))
 graph_1_DT[,postal_sector:=as.character(postalsector)]
 graph_1_DT[,postal_sector:=ifelse(str_length(postal_sector)==1, str_c("0",postal_sector),postal_sector)]
 graph_1_DT <- graph_1_DT[!postal_sector%in%void]
@@ -25,7 +25,7 @@ ggplot()+
 
 #2
 void <- c("00","02","74")
-graph_2_DT <- fread(str_c(dirr,"/data/2.csv"))
+graph_2_DT <- fread(str_c(root,"/data/2.csv"))
 graph_2_DT[,postal_sector:=as.character(postalsector)]
 graph_2_DT[,postal_sector:=ifelse(str_length(postal_sector)==1, str_c("0",postal_sector),postal_sector)]
 graph_2_DT <- graph_2_DT[!postal_sector%in%void]
@@ -49,7 +49,7 @@ ggplot()+
 
 #3
 void <- c("00","02","74")
-graph_3_DT <- fread(str_c(dirr,"/data/3.csv"))
+graph_3_DT <- fread(str_c(root,"/data/3.csv"))
 graph_3_DT[,postal_sector:=as.character(postalsector)]
 graph_3_DT[,postal_sector:=ifelse(str_length(postal_sector)==1, str_c("0",postal_sector),postal_sector)]
 graph_3_DT <- graph_3_DT[!postal_sector%in%void]
@@ -69,14 +69,3 @@ ggplot()+
         panel.grid.minor = element_line(color="#deebf7"),
         legend.position = "right")+
   scale_fill_distiller(type = "div",palette ="RdYlGn",direction = 1,limits= c(-30,30))
-
-
-
-
-
-
-max(graph_2_DT[,abs(diff)])
-
-muted("red")
-?scale_fill_distiller
-
