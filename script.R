@@ -122,7 +122,7 @@ map_DT[,geometry:=st_transform(geometry,4267)]
 
 out_DT <- merge(elderly_DT,map_DT,by.x="PA",by.y = "PLN_AREA_N")
 out_SF <- st_as_sf(out_DT)
-st_write(out_SF,str_c(root,"/processed_data/singapore and elderlies.geojson"))
+st_write(out_SF,str_c(root,"/processed_data/singapore and elderlies 20170905.geojson"))
 
 
 
