@@ -61,6 +61,16 @@ subzone_SF_DT <- rbind(
 #subzone_SF_DT[,geometry:=st_transform(geometry,crs=4267)]
 setkey(subzone_SF_DT,"year","PLN_AREA_C","SUBZONE_NO")
 
+
+ggplot()+
+  geom_sf(data=out_DT,aes(geometry=geometry))
+
+out_DT <- subzone_2014_SF_DT[,.(geometry=st_union(geometry)),by=PLN_AREA_N]
+out_DT[,geometry:=st_cast(geometry)]
+out_DT[,geometry:=st_transform(geometry,4267)]
+out_SF <- st_as_sf(out_DT)
+st_write(out_SF, "singapore.geojson")
+st_write(str_c(root,"/processed_data/singapore.geojson"))
 #######################################
 #post code conversion to planning area#
 #######################################
@@ -86,12 +96,38 @@ fwrite(regionConversion_DT,str_c(root,"/processed_data/regionConversion_DT 20170
 #Aging population example#
 ##########################
 subzone_SF_DT[,geometry:=st_transform(geometry,crs=4267)]
-pop_DT <- fread(str_c(root,"/respopagsex2000to2016.csv"))
+pop_DT <- fread(str_c(root,"/raw_data/Singapore Population/respopagsex2000to2016.csv"))
 pop_DT[,":="(PA = toupper(PA),
              SZ = toupper(SZ)),]
-pop_DT[,start_AG := as.integer(str_extract(AG,"\\d*"))]
+pop_DT[,start_age := as.integer(str_extract(AG,"\\d*"))]
+
+#information mentioned inother data
 pop_DT[,Time2:=ifelse(Time < 2001,1998,
                       ifelse(Time<2011,2008,2014)) ]
+
+
+# ABstracting total population age 65 years and above
+elderly_DT <- pop_DT[Time2%in%c(2008,2014)]
+#check all the Planning Area in out_DT is contained in 2014 planning area
+summary(elderly_DT[,unique(PA)]%in%subzone_2014_SF_DT[,unique(PLN_AREA_N),])
+#   Mode    TRUE 
+#logical      55
+elderly_DT <- elderly_DT[,.(Pop=sum(Pop*(start_age>=65))),by = .(PA,Time)]
+elderly_DT <- dcast(elderly_DT, PA ~ Time, value.var = "Pop")
+#fwrite(out_DT,str_c(root,"/processed_data/Singapore's Elderly Residents 20170905.csv"))
+
+map_DT <- subzone_2014_SF_DT[,.(geometry=st_union(geometry)),by=PLN_AREA_N]
+map_DT[,geometry:=st_cast(geometry)]
+map_DT[,geometry:=st_transform(geometry,4267)]
+
+out_DT <- merge(elderly_DT,map_DT,by.x="PA",by.y = "PLN_AREA_N")
+out_SF <- st_as_sf(out_DT)
+st_write(out_SF,str_c(root,"/processed_data/singapore and elderlies.geojson"))
+
+
+
+
+
 # manual editing based on 65 and above result
 ##different 
 pop_DT[SZ=="NATIONAL UNIVERSITY OF SINGAPORE",SZ:="NATIONAL UNIVERSITY OF S'PORE"]
@@ -108,5 +144,6 @@ row.has.na <- apply(graph_DT, 1, function(x){any(is.na(x))})
 graph2_DT <- graph_DT[,.(geometry=(st_union(geometry)),
                          Pop = sum(Pop)),by=.(PLN_AREA_N,PLN_AREA_C,year,Time)]
 graph2_DT[,geometry:=st_cast(geometry)]
+
 
 
