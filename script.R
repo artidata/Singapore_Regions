@@ -146,4 +146,8 @@ graph2_DT <- graph_DT[,.(geometry=(st_union(geometry)),
 graph2_DT[,geometry:=st_cast(geometry)]
 
 
+#Extraction for population Pyramid
+
+out_DT <- pop_DT[,.(Pop = sum(Pop),start_age=unique(start_age)),by=.(AG,Sex,Time)]
+fwrite(out_DT,str_c(root,"/processed_data/population pyramid 20170913.csv"))
 
